@@ -1,0 +1,167 @@
+on:
+  workflow_dispatch:
+  check_run:
+    types: [rerequested]
+  schedule:
+    - cron: '17 4 * * *'
+
+jobs:
+  epic5:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror epic5 repo
+      run: |
+        git clone --mirror https://git.epicsol.org/epic5.git/
+        cd epic5.git
+        git push --mirror git@github.com:ailin-nemui/epic5.git
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  epic6:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror epic6 repo
+      run: |
+        git clone --mirror https://git.epicsol.org/epic6.git/
+        cd epic6.git
+        git push --mirror git@github.com:ailin-nemui/epic6.git
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  check-irssi-scripts:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror check-irssi-scripts repo
+      run: |
+        git clone --mirror https://github.com/bw1/check-irssi-scripts.git
+        cd check-irssi-scripts.git
+        # cannot mirror pull requests
+        git show-ref | awk '{print $2}' | grep '^refs/pull/' | xargs -n1 git update-ref -d
+        git push --mirror git@github.com:irssi-import/check-irssi-scripts.git
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  irssi:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: forward irssi master branch
+      run: |
+        git clone https://github.com/irssi/irssi
+        cd irssi
+        # forward master only
+        git remote add fork git@github.com:ailin-nemui/irssi.git
+        git push -u fork
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh        
+  irssi-codeberg:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror irssi repo to codeberg
+      run: |
+        mkdir irssi.git
+        cd irssi.git
+        git init
+        git remote add github git@github.com:irssi/irssi.git
+        git remote add codeberg git@codeberg.org:irssi/irssi.git
+        git fetch github master
+        git fetch github --tags
+        git push codeberg --tags
+        git fetch codeberg master
+        if git branch -a --contains codeberg/master | grep -Fx '  remotes/github/master'; then
+          git push --force codeberg github/master:master
+        else
+          git push --force github codeberg/master:refs/heads/from-codeberg
+        fi
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  irssi-python-codeberg:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror irssi-python repo to codeberg
+      run: |
+        mkdir irssi-python.git
+        cd irssi-python.git
+        git init
+        git remote add github git@github.com:irssi-import/irssi-python.git
+        git remote add codeberg git@codeberg.org:irssi/irssi-python.git
+        git fetch github py3
+        git fetch github --tags
+        git push codeberg --tags
+        git fetch codeberg py3
+        if git branch -a --contains codeberg/py3 | grep -Fx '  remotes/github/py3'; then
+          git push --force codeberg github/py3:py3
+        else
+          git push --force github codeberg/py3:refs/heads/from-codeberg
+        fi
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  irssi-scripts-codeberg:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install ssh key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+    - name: mirror scripts.irssi.org repo to codeberg
+      run: |
+        mkdir scripts.irssi.org.git
+        cd scripts.irssi.org.git
+        git init
+        git remote add github git@github.com:irssi/scripts.irssi.org.git
+        git remote add codeberg git@codeberg.org:irssi/scripts.irssi.org.git
+        git fetch github master
+        git fetch codeberg master
+        if git branch -a --contains codeberg/master | grep -Fx '  remotes/github/master'; then
+          git push --force codeberg github/master:master
+        else
+          git push --force github codeberg/master:refs/heads/from-codeberg
+        fi
+    - name: uninstall ssh key
+      run: |
+        rm -fr ~/.ssh
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@main
+    - name: commit changes
+      run: |
+        date +'%G%V' > .wk
+        git config user.email "cron@ailin-nemui.github.io"
+        git config user.name "GitHub Cronjobs"
+        git add .wk
+        git commit --amend -m "Run from $(date)" || :
+        git push --force
